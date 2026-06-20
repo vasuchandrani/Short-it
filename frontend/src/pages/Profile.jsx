@@ -55,7 +55,7 @@ const Profile = () => {
   };
 
   // Theoretical production URL
-  const getProdUrl = (key) => `https://shortit.com/${key}`;
+  const getProdUrl = (key) => `https://ddu-projects.com/${key}`;
 
   return (
     <div className="container animate-fade-in" style={{

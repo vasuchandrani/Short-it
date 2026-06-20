@@ -69,7 +69,7 @@ const Dashboard = () => {
   };
 
   // Theoretical production URL
-  const getProdUrl = (k) => `https://shortit.com/${k}`;
+  const getProdUrl = (k) => `https://ddu-projects.com/${k}`;
 
   return (
     <div className="container animate-fade-in" style={{
@@ -118,7 +118,7 @@ const Dashboard = () => {
           <div className="form-group">
             <label className="form-label">Custom Keyword / Short Key</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: '15px', fontWeight: '500' }}>shortit.com /</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '15px', fontWeight: '500' }}>ddu-projects.com /</span>
               <input
                 type="text"
                 className="form-input"
