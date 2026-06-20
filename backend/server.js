@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { initializeDatabase } = require('./initDb');
 require('dotenv').config();
 
@@ -14,6 +15,12 @@ app.use(cors({
 
 app.use(express.json());
 
+// Serve static React build files in production environment
+const distPath = path.join(__dirname, '../frontend/dist');
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(distPath));
+}
+
 // Basic health check route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Short-it API is running' });
@@ -26,6 +33,13 @@ app.use('/api/urls', require('./routes/urls'));
 
 // Mount redirection wildcard route (must be last)
 app.use('/', require('./routes/redirect'));
+
+// Fallback all other client requests to React Router index.html in production
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
 
 // Initialize DB and start server
 initializeDatabase()

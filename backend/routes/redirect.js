@@ -4,8 +4,14 @@ const db = require('../db');
 const redis = require('../redis');
 require('dotenv').config();
 
-router.get('/:key', async (req, res) => {
+router.get('/:key', async (req, res, next) => {
   const { key } = req.params;
+
+  // Bypass short url lookup for known React SPA paths
+  const frontendRoutes = ['login', 'auth-request', 'dashboard', 'profile', 'admin', '404'];
+  if (frontendRoutes.includes(key)) {
+    return next();
+  }
 
   // Skip standard routes and files
   if (
