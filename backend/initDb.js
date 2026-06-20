@@ -19,6 +19,8 @@ const initDbQuery = `
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     contact VARCHAR(50) NOT NULL,
+    password VARCHAR(255) NOT NULL DEFAULT '',
+    verification_code VARCHAR(50),
     status VARCHAR(50) DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
@@ -65,7 +67,15 @@ async function initializeDatabase() {
   try {
     console.log('Initializing database schema...');
     await db.query(initDbQuery);
-    console.log('Database schema checks completed successfully.');
+    
+    // Migrations to add password and verification code columns
+    await db.query(`
+      ALTER TABLE authentication_requests 
+      ADD COLUMN IF NOT EXISTS password VARCHAR(255) DEFAULT '',
+      ADD COLUMN IF NOT EXISTS verification_code VARCHAR(50)
+    `);
+    
+    console.log('Database schema checks and migrations completed successfully.');
     await seedAdmin();
   } catch (err) {
     console.error('Database initialization error:', err.message);
