@@ -19,17 +19,13 @@ async function approveRequestLogic(requestId) {
     throw new Error(`Request is already ${request.status}.`);
   }
 
-  // Generate temporary password
-  const tempPassword = 'short-' + crypto.randomBytes(3).toString('hex');
-  const hashedPassword = await bcrypt.hash(tempPassword, 10);
-
   // Start Transaction
   await db.query('BEGIN');
   try {
-    // 1. Insert into users table
+    // 1. Insert into users table using the password hash they chose
     await db.query(
       'INSERT INTO users (name, email, contact, password, role, status) VALUES ($1, $2, $3, $4, $5, $6)',
-      [request.name, request.email, request.contact, hashedPassword, 'user', 'approved']
+      [request.name, request.email, request.contact, request.password, 'user', 'approved']
     );
 
     // 2. Update request status to approved
@@ -51,21 +47,7 @@ async function approveRequestLogic(requestId) {
       <h2 style="color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 12px; margin-top: 0;">Welcome to Short-It!</h2>
       <p style="font-size: 16px; color: #475569; line-height: 1.5;">Hi ${request.name},</p>
       <p style="font-size: 16px; color: #475569; line-height: 1.5;">Great news! Your Short-It account has been approved by the administrator.</p>
-      
-      <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
-        <p style="margin: 0 0 10px 0; font-weight: 600; color: #166534;">Your Temporary Credentials:</p>
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr>
-            <td style="padding: 4px 0; font-weight: 500; color: #334155; width: 100px;">Username:</td>
-            <td style="padding: 4px 0; color: #475569;">${request.email}</td>
-          </tr>
-          <tr>
-            <td style="padding: 4px 0; font-weight: 500; color: #334155;">Password:</td>
-            <td style="padding: 4px 0; font-family: monospace; font-weight: bold; color: #166534; font-size: 16px;">${tempPassword}</td>
-          </tr>
-        </table>
-        <p style="margin: 10px 0 0 0; font-size: 13px; color: #15803d; font-style: italic;">* Please change your password in the dashboard after logging in.</p>
-      </div>
+      <p style="font-size: 16px; color: #475569; line-height: 1.5;">You can now log in using the credentials (email and password) you chose during your request submission.</p>
       
       <div style="margin: 30px 0; text-align: center;">
         <a href="${frontendUrl}/login" style="background-color: #6366f1; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; transition: background-color 0.2s;">Open Dashboard</a>
@@ -82,7 +64,7 @@ async function approveRequestLogic(requestId) {
     html: htmlContent
   });
 
-  return { email: request.email, tempPassword };
+  return { email: request.email };
 }
 
 // Helper function to handle request rejection
@@ -143,8 +125,8 @@ router.get('/requests/email-action', async (req, res) => {
         <div style="text-align: center; padding: 50px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
           <div style="color: #10b981; font-size: 64px; margin-bottom: 20px;">✓</div>
           <h1 style="color: #1e293b;">Request Approved Successfully!</h1>
-          <p style="color: #64748b; font-size: 16px;">An account has been created for <strong>${result.email}</strong>.</p>
-          <p style="color: #64748b; font-size: 16px;">A welcome email with their temporary password (<code>${result.tempPassword}</code>) has been dispatched.</p>
+          <p style="color: #64748b; font-size: 16px;">An account has been created and activated for <strong>${result.email}</strong>.</p>
+          <p style="color: #64748b; font-size: 16px;">They can now immediately log in with the password they selected during registration.</p>
           <br/>
           <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}" style="background-color: #6366f1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: 500;">Go to Dashboard</a>
         </div>
