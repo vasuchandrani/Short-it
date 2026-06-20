@@ -1,6 +1,8 @@
-# Short-It: Invite-Only Production-Ready URL Shortener
+# Short-It: Invite-Only Production-Ready URL Shortener for DDU
 
-**Short-It** is a private, production-ready, invite-only URL shortener application designed for trusted user circles. The system features a modern React client, an Express backend, PostgreSQL database storage, and high-performance caching utilizing Upstash Redis.
+**Short-It** is a private, production-ready, invite-only URL shortener application. It is customized to serve students at **DDU (Dharmsinh Desai University)** with instant automatic email verification while maintaining super-admin invite approvals for outside domains. 
+
+The application is configured to serve short links using the branding domain **`ddu-projects.com`** (e.g. `https://ddu-projects.com/portfolio`).
 
 ---
 
@@ -11,11 +13,11 @@
 - **Database**: PostgreSQL (Neon Database)
 - **Cache**: Upstash Redis (REST-based HTTP cache)
 - **Auth**: JSON Web Tokens (JWT) & bcryptjs password hashing
-- **Mail**: Nodemailer notifications with Ethereal SMTP fallback
+- **Mail**: Brevo REST API with Gmail SMTP and Ethereal fallbacks
 
 ### Frontend
 - **Framework**: React.js (Vite SPA)
-- **Routing**: React Router DOM (protected client-side paths)
+- **Routing**: React Router DOM
 - **Icons**: Lucide React
 - **Styling**: Modern, premium Vanilla CSS theme (dark mode, glassmorphism)
 
@@ -25,19 +27,21 @@
 
 ```
 Short-it/
+├── package.json        # Root package.json managing monorepo scripts
+├── render.yaml         # Render blueprint service template
 ├── backend/            # Express.js Server
 │   ├── middleware/     # JWT Auth middleware
 │   ├── routes/         # Auth, Admin, URL creation & Redirection route controllers
 │   ├── db.js           # PostgreSQL pool configurations
 │   ├── redis.js        # Upstash Redis REST wrapper with in-memory fallback
-│   ├── email.js        # Nodemailer email trigger hooks
+│   ├── email.js        # Brevo API & Nodemailer email triggers
 │   ├── initDb.js       # Auto-migrations and Admin seeding
-│   ├── server.js       # Express entrypoint
+│   ├── server.js       # Express entrypoint serving API & Static build assets in production
 │   └── test-system.js  # Database & Cache verification script
 └── frontend/           # Vite React App
     ├── src/
-    │   ├── components/ # Shared layout components (Navbar, Header)
-    │   ├── pages/      # Landing, Login, Request Access, Dashboard, Profile, Admin Panel, 404
+    │   ├── components/ # Shared layout components (Navbar)
+    │   ├── pages/      # Landing, Login, Request Access (OTP), Dashboard, Profile, Admin Panel, 404
     │   ├── App.jsx     # Route configurations & protectors
     │   ├── index.css   # Main global design system
     │   └── AuthContext.jsx # Global user authentication state provider
@@ -45,9 +49,28 @@ Short-it/
 
 ---
 
+## Special Features
+
+### 1. DDU Student Auto-Approval Flow
+- In the registration form, users provide their chosen password.
+- If the email ends in `@ddu.ac.in` (e.g., `23ituos013@ddu.ac.in`):
+  - A 6-digit numeric verification code is generated.
+  - The code is sent to the student's email via **Brevo** / **Gmail**. No notification is sent to the super admin.
+  - The frontend prompts the student for this code.
+  - Upon inputting the correct code, the account is activated instantly, and the user is auto-logged into the dashboard.
+- If the email does **not** end in `@ddu.ac.in`:
+  - The request is saved with status `pending`.
+  - The super admin receives a notification email with direct `Approve` / `Reject` buttons.
+  - Upon admin approval, the account is activated with their pre-selected password.
+
+### 2. Branding Domain
+- Custom short links are formatted on the user dashboard and profile using **`ddu-projects.com/{key}`**.
+
+---
+
 ## Environment Variables
 
-Create a `.env` file in the `backend/` directory using the following keys:
+Create a `.env` file in the `backend/` directory during local development:
 
 ```env
 PORT=5000
@@ -60,64 +83,67 @@ FRONTEND_URL=http://localhost:5173
 ADMIN_EMAIL=vatsal.chandrani.11@gmail.com
 ADMIN_PASSWORD=vats@l1118
 
-# Optional SMTP Settings (defaults to Ethereal mock in dev if empty)
-SMTP_HOST=
-SMTP_PORT=
-SMTP_USER=
-SMTP_PASS=
+# Email Integrations
+BREVO_API_KEY=your_brevo_api_key
+EMAIL_FROM=shortit.team@gmail.com
+GMAIL_USER=shortit.team@gmail.com
+GMAIL_PASS=your_gmail_app_password
 ```
 
 ---
 
-## Setup Steps
+## Running Locally
 
-### 1. Backend Setup
-1. Open a terminal and navigate to the backend folder:
+### 1. Local Setup
+1. Install root, backend, and frontend packages:
+   ```bash
+   npm run install-all
+   ```
+2. Setup your `backend/.env` file.
+3. Test your database and cache configurations:
    ```bash
    cd backend
-   ```
-2. Install packages:
-   ```bash
-   npm install
-   ```
-3. Populate `.env` with valid connection credentials.
-4. Verify connections using the validation suite:
-   ```bash
    node test-system.js
    ```
 
-### 2. Frontend Setup
-1. Open a second terminal and navigate to the frontend folder:
-   ```bash
-   cd frontend
-   ```
-2. Install packages:
-   ```bash
-   npm install
-   ```
+### 2. Run Commands
+- Run backend API: `cd backend && npm run dev` (starts on `http://localhost:5000`)
+- Run frontend SPA: `cd frontend && npm run dev` (starts on `http://localhost:5173`)
 
 ---
 
-## Running Instructions
+## Deploying to Render
 
-### Run Backend Server
-From the `backend/` directory, start the server in development hot-reload mode:
-```bash
-npm run dev
-```
-The server automatically applies database migrations and seeds the initial admin user. It runs on `http://localhost:5000`.
+This project is configured to run as a single Render Web Service. The Express backend serves both the API endpoints and builds/serves the React static frontend bundle when running in production.
 
-### Run Frontend Client
-From the `frontend/` directory, start the Vite development server:
-```bash
-npm run dev
-```
-The application opens on `http://localhost:5173`.
+### Option A: Deploy using Blueprint (Recommended)
+1. Commit all your changes and push them to your GitHub repository.
+2. Go to [Render Dashboard](https://dashboard.render.com/) and click **New > Blueprint**.
+3. Select your repository.
+4. Render will parse `render.yaml` and prompt you for the required environment variables:
+   - `DATABASE_URL` (Neon Postgres string)
+   - `UPSTASH_REDIS_REST_URL` & `UPSTASH_REDIS_REST_TOKEN` (Upstash cache credentials)
+   - `BREVO_API_KEY` (Brevo email key)
+   - `GMAIL_PASS` (Gmail App password fallback)
+5. Click **Approve**. Render will automatically provision, install dependencies, compile the client bundle, and run the server.
 
----
-
-## Core Product Flows
-
-1. **Access Requests**: Unregistered users submit details on the home screen. A request is recorded, and the admin receives an HTML email with instant "Approve" / "Reject" links.
-2. **Link Shortening**: Authenticated users create short URLs. The dashboard checks that custom keys are unique and that the same user cannot shorten the same link twice.
-3. **Caching & Redirects**: Requests to `shortit.com/{key}` query Upstash Redis first for O(1) redirections. On a cache miss, the system queries the database, sets the cache, and forwards the client.
+### Option B: Manual Web Service Deployment
+If you prefer configuring it manually on the Render dashboard:
+1. Click **New > Web Service** and link your Git repository.
+2. Configure the following settings:
+   - **Environment**: `Node`
+   - **Build Command**: `npm run build`
+   - **Start Command**: `npm start`
+3. Click **Advanced** and add the following Environment Variables:
+   - `NODE_ENV` = `production`
+   - `PORT` = `10000`
+   - `DATABASE_URL` = *(Your Neon PostgreSQL URL)*
+   - `UPSTASH_REDIS_REST_URL` = *(Your Upstash Redis REST URL)*
+   - `UPSTASH_REDIS_REST_TOKEN` = *(Your Upstash Redis REST Token)*
+   - `JWT_SECRET` = *(Any random security phrase)*
+   - `FRONTEND_URL` = `https://ddu-projects.com`
+   - `BREVO_API_KEY` = *(Your Brevo API key)*
+   - `EMAIL_FROM` = `shortit.team@gmail.com`
+   - `GMAIL_USER` = `shortit.team@gmail.com`
+   - `GMAIL_PASS` = *(Your Gmail App password fallback)*
+4. Click **Deploy Web Service**.
