@@ -5,6 +5,8 @@ import Navbar from './components/Navbar';
 import Landing from './pages/Landing';
 import AuthRequest from './pages/AuthRequest';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import AdminDashboard from './pages/AdminDashboard';
@@ -62,6 +64,8 @@ function AppContent() {
           <Route path="/" element={<Landing />} />
           <Route path="/auth-request" element={<AuthRequest />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           
           <Route path="/dashboard" element={
             <ProtectedRoute>

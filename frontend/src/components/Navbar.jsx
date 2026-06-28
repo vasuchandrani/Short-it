@@ -16,18 +16,7 @@ const Navbar = () => {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <nav className="glass-panel" style={{
-      margin: '20px auto',
-      maxWidth: '1200px',
-      borderRadius: '24px',
-      padding: '12px 24px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      position: 'sticky',
-      top: '20px',
-      zIndex: 100
-    }}>
+    <nav className="glass-panel navbar">
       <Link to="/" style={{
         display: 'flex',
         alignItems: 'center',
@@ -36,7 +25,8 @@ const Navbar = () => {
         color: 'var(--text-primary)',
         fontSize: '22px',
         fontWeight: '800',
-        letterSpacing: '-0.5px'
+        letterSpacing: '-0.5px',
+        flexShrink: 0
       }}>
         <div style={{
           background: 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)',
@@ -52,7 +42,7 @@ const Navbar = () => {
         <span>Short-<span className="gradient-text">It</span></span>
       </Link>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div className="navbar-actions">
         {user ? (
           <>
             <Link to="/dashboard" className="btn btn-secondary" style={{

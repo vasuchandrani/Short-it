@@ -322,4 +322,98 @@ router.get('/me', authenticateToken, async (req, res) => {
   }
 });
 
+// 4. Forgot Password - Generate & Email Token
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required.' });
+  }
+
+  try {
+    const result = await db.query('SELECT id, name FROM users WHERE email = $1', [email]);
+    if (result.rows.length === 0) {
+      // Prevent user enumeration by returning a generic message
+      return res.json({ message: 'If this email is registered, a password reset link has been sent.' });
+    }
+
+    const user = result.rows[0];
+
+    // Generate a reset token containing user ID
+    const resetToken = jwt.sign(
+      { userId: user.id, purpose: 'reset-password' },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+    const htmlContent = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+        <h2 style="color: #6366f1; border-bottom: 2px solid #6366f1; padding-bottom: 12px; margin-top: 0;">Reset Your Password</h2>
+        <p style="font-size: 16px; color: #475569; line-height: 1.5;">Hi ${user.name},</p>
+        <p style="font-size: 16px; color: #475569; line-height: 1.5;">We received a request to reset the password for your Short-It account. Click the button below to set a new password:</p>
+        
+        <div style="margin: 30px 0; text-align: center;">
+          <a href="${resetUrl}" style="background-color: #6366f1; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; transition: background-color 0.2s;">Reset Password</a>
+        </div>
+        
+        <p style="font-size: 14px; color: #64748b;">This reset link will expire in 1 hour. If you did not request a password reset, you can safely ignore this email.</p>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 25px 0;" />
+        <p style="font-size: 12px; color: #94a3b8; text-align: center;">Short-It URL Shortener Team</p>
+      </div>
+    `;
+
+    await sendMail({
+      to: email,
+      subject: 'Reset your Short-It password',
+      html: htmlContent
+    });
+
+    return res.json({ message: 'If this email is registered, a password reset link has been sent.' });
+  } catch (err) {
+    console.error('Forgot password error:', err.message);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+// 5. Reset Password - Verify Token & Save Password
+router.post('/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body;
+  if (!token || !newPassword) {
+    return res.status(400).json({ message: 'Token and new password are required.' });
+  }
+
+  try {
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(400).json({ message: 'Invalid or expired reset token.' });
+    }
+
+    if (decoded.purpose !== 'reset-password' || !decoded.userId) {
+      return res.status(400).json({ message: 'Invalid reset token.' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update in database
+    const updateRes = await db.query(
+      'UPDATE users SET password = $1 WHERE id = $2 RETURNING email',
+      [hashedPassword, decoded.userId]
+    );
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    return res.json({ message: 'Password has been reset successfully. You can now log in.' });
+  } catch (err) {
+    console.error('Reset password error:', err.message);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
 module.exports = router;

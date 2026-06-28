@@ -8,7 +8,7 @@ router.get('/:key', async (req, res, next) => {
   const { key } = req.params;
 
   // Bypass short url lookup for known React SPA paths
-  const frontendRoutes = ['login', 'auth-request', 'dashboard', 'profile', 'admin', '404'];
+  const frontendRoutes = ['login', 'auth-request', 'dashboard', 'profile', 'admin', '404', 'forgot-password', 'reset-password'];
   if (frontendRoutes.includes(key)) {
     return next();
   }
