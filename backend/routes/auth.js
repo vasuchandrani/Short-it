@@ -14,16 +14,18 @@ router.post('/request', async (req, res) => {
     return res.status(400).json({ message: 'All fields (name, email, contact, password) are required.' });
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+
   try {
     // Check if user is in blocked_users table
-    const blockedCheck = await db.query('SELECT * FROM blocked_users WHERE email = $1', [email]);
+    const blockedCheck = await db.query('SELECT * FROM blocked_users WHERE email = $1', [normalizedEmail]);
     if (blockedCheck.rows.length > 0) {
       // Reject request silently (do not send email)
       return res.status(403).json({ message: 'Your request cannot be processed.' });
     }
 
     // Check if user is already approved and registered
-    const userCheck = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    const userCheck = await db.query('SELECT * FROM users WHERE email = $1', [normalizedEmail]);
     if (userCheck.rows.length > 0) {
       return res.status(400).json({
         message: 'Your account has already been approved and registered. Please login.'
@@ -34,7 +36,7 @@ router.post('/request', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     
     // Check if email ends with @ddu.ac.in
-    const isDduEmail = email.toLowerCase().endsWith('@ddu.ac.in');
+    const isDduEmail = normalizedEmail.endsWith('@ddu.ac.in');
 
     if (isDduEmail) {
       // Direct Email Verification Flow for DDU Students
@@ -42,16 +44,16 @@ router.post('/request', async (req, res) => {
       const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
       // Upsert into authentication_requests with status 'verifying'
-      const existingReq = await db.query('SELECT * FROM authentication_requests WHERE email = $1', [email]);
+      const existingReq = await db.query('SELECT * FROM authentication_requests WHERE email = $1', [normalizedEmail]);
       if (existingReq.rows.length > 0) {
         await db.query(
           "UPDATE authentication_requests SET name = $1, contact = $2, password = $3, verification_code = $4, status = 'verifying' WHERE email = $5",
-          [name, contact, hashedPassword, verificationCode, email]
+          [name, contact, hashedPassword, verificationCode, normalizedEmail]
         );
       } else {
         await db.query(
           "INSERT INTO authentication_requests (name, email, contact, password, verification_code, status) VALUES ($1, $2, $3, $4, $5, 'verifying')",
-          [name, email, contact, hashedPassword, verificationCode]
+          [name, normalizedEmail, contact, hashedPassword, verificationCode]
         );
       }
 
@@ -74,21 +76,21 @@ router.post('/request', async (req, res) => {
       `;
 
       await sendMail({
-        to: email,
+        to: normalizedEmail,
         subject: 'Your Short-It Verification Code',
         html: htmlContent
       });
 
       return res.status(200).json({
         requiresVerification: true,
-        email,
+        email: normalizedEmail,
         message: 'A verification code has been sent to your DDU email. Please enter it to complete activation.'
       });
 
     } else {
       // Standard Admin Approval Flow
       // Check if user is already in requests table
-      const requestCheck = await db.query('SELECT * FROM authentication_requests WHERE email = $1', [email]);
+      const requestCheck = await db.query('SELECT * FROM authentication_requests WHERE email = $1', [normalizedEmail]);
       if (requestCheck.rows.length > 0) {
         const existingReqStatus = requestCheck.rows[0].status;
         if (existingReqStatus === 'pending') {
@@ -99,19 +101,19 @@ router.post('/request', async (req, res) => {
           // If request was verifying or rejected, update it
           await db.query(
             "UPDATE authentication_requests SET name = $1, contact = $2, password = $3, verification_code = NULL, status = 'pending' WHERE email = $4",
-            [name, contact, hashedPassword, email]
+            [name, contact, hashedPassword, normalizedEmail]
           );
         }
       } else {
         // Store request in database
         await db.query(
           "INSERT INTO authentication_requests (name, email, contact, password, status) VALUES ($1, $2, $3, $4, 'pending')",
-          [name, email, contact, hashedPassword]
+          [name, normalizedEmail, contact, hashedPassword]
         );
       }
 
       // Fetch the created request for ID (for direct email action links)
-      const freshReq = await db.query('SELECT * FROM authentication_requests WHERE email = $1', [email]);
+      const freshReq = await db.query('SELECT * FROM authentication_requests WHERE email = $1', [normalizedEmail]);
       const newRequest = freshReq.rows[0];
 
       // Generate secure single-click token for admin approval/rejection from email
@@ -143,7 +145,7 @@ router.post('/request', async (req, res) => {
               </tr>
               <tr>
                 <td style="padding: 6px 0; font-weight: 600; color: #334155;">Email:</td>
-                <td style="padding: 6px 0; color: #475569;">${email}</td>
+                <td style="padding: 6px 0; color: #475569;">${normalizedEmail}</td>
               </tr>
               <tr>
                 <td style="padding: 6px 0; font-weight: 600; color: #334155;">Contact:</td>
@@ -192,11 +194,13 @@ router.post('/verify-code', async (req, res) => {
     return res.status(400).json({ message: 'Email and verification code are required.' });
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+
   try {
     // Find requests with status 'verifying' matching email
     const reqRes = await db.query(
       "SELECT * FROM authentication_requests WHERE email = $1 AND status = 'verifying'",
-      [email]
+      [normalizedEmail]
     );
 
     if (reqRes.rows.length === 0) {
@@ -265,9 +269,11 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ message: 'Email and password are required.' });
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+
   try {
     // Find user in users table
-    const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    const result = await db.query('SELECT * FROM users WHERE email = $1', [normalizedEmail]);
     if (result.rows.length === 0) {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
@@ -329,8 +335,10 @@ router.post('/forgot-password', async (req, res) => {
     return res.status(400).json({ message: 'Email is required.' });
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+
   try {
-    const result = await db.query('SELECT id, name FROM users WHERE email = $1', [email]);
+    const result = await db.query('SELECT id, name FROM users WHERE email = $1', [normalizedEmail]);
     if (result.rows.length === 0) {
       // Prevent user enumeration by returning a generic message
       return res.json({ message: 'If this email is registered, a password reset link has been sent.' });
