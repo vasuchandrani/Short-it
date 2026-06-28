@@ -56,7 +56,12 @@ async function seedAdmin() {
       );
       console.log('Database Seeding: Admin user created successfully.');
     } else {
-      console.log('Database Seeding: Admin user already exists.');
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      await db.query(
+        'UPDATE users SET password = $1, role = $2, status = $3 WHERE email = $4',
+        [hashedPassword, 'admin', 'approved', adminEmail]
+      );
+      console.log('Database Seeding: Admin user credentials synchronized with env.');
     }
   } catch (err) {
     console.error('Error seeding admin user:', err.message);
